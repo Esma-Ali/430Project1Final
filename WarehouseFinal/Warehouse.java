@@ -99,4 +99,41 @@ public class Warehouse implements Serializable {
 
         return snapshot;
     }
+        public boolean processOrder(String clientID) {
+        Client client = getClient(clientID);
+        List<WishlistItem> items =
+                getClientWishlistSnapshot(clientID);
+
+        if (client == null || items == null || items.isEmpty()) {
+            return false;
+        }
+
+        Invoice invoice = new Invoice(clientID);
+
+        for (WishlistItem item : items) {
+            Product product = item.getProduct();
+            int requested = item.getQuantity();
+
+            int supplied = product.supply(requested);
+            int shortage = requested - supplied;
+
+            if (supplied > 0) {
+                invoice.addItem(
+                        product, supplied, product.getPrice());
+            }
+
+            if (shortage > 0) {
+                product.addToWaitlist(client, shortage);
+            }
+
+            client.removeFromWishlist(product.getId());
+        }
+
+        if (invoice.getTotal() > 0) {
+            client.debit(invoice.getTotal());
+            client.addInvoice(invoice);
+        }
+
+        return true;
+    }
 }

@@ -136,4 +136,56 @@ public class Warehouse implements Serializable {
 
         return true;
     }
+            public boolean receiveShipment(String productID, int received) {
+        Product product = getProduct(productID);
+
+        if (product == null || received <= 0) {
+            return false;
+        }
+
+        int remaining = received;
+        Iterator<WaitlistItem> iterator = product.getWaitlist();
+
+        while (iterator.hasNext() && remaining > 0) {
+            WaitlistItem item = iterator.next();
+            Client client = item.getClient();
+
+            int supplied = Math.min(
+                    remaining, item.getQuantity());
+
+            Invoice invoice = new Invoice(client.getId());
+            invoice.addItem(
+                    product, supplied, product.getPrice());
+
+            client.debit(invoice.getTotal());
+            client.addInvoice(invoice);
+
+            remaining -= supplied;
+            int stillWaiting = item.getQuantity() - supplied;
+
+            if (stillWaiting == 0) {
+                iterator.remove();
+            } else {
+                item.setQuantity(stillWaiting);
+            }
+        }
+
+        if (remaining > 0) {
+            product.addStock(remaining);
+        }
+
+        return true;
+    }
+
+    public Iterator<WaitlistItem> getProductWaitlist(
+            String productID) {
+
+        Product product = getProduct(productID);
+
+        if (product == null) {
+            return null;
+        }
+
+        return product.getWaitlist();
+    }
 }

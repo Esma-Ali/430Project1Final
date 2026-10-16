@@ -1,5 +1,7 @@
 import java.io.Serializable;
 import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Warehouse implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -78,5 +80,23 @@ public class Warehouse implements Serializable {
         }
 
         return client.getWishlist();
+    }
+        public List<WishlistItem> getClientWishlistSnapshot(String clientID) {
+        Iterator<WishlistItem> iterator = getClientWishlist(clientID);
+
+        if (iterator == null) {
+            return null;
+        }
+
+        List<WishlistItem> snapshot = new ArrayList<>();
+
+        while (iterator.hasNext()) {
+            WishlistItem item = iterator.next();
+            snapshot.add(new WishlistItem(
+                    item.getProduct(),
+                    item.getQuantity()));
+        }
+
+        return snapshot;
     }
 }

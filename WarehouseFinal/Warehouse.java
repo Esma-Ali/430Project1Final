@@ -109,6 +109,7 @@ public class Warehouse implements Serializable {
         }
 
         Invoice invoice = new Invoice(clientID);
+        boolean hasSuppliedItems = false;
 
         for (WishlistItem item : items) {
             Product product = item.getProduct();
@@ -120,6 +121,8 @@ public class Warehouse implements Serializable {
             if (supplied > 0) {
                 invoice.addItem(
                         product, supplied, product.getPrice());
+
+                hasSuppliedItems = true;
             }
 
             if (shortage > 0) {
@@ -129,7 +132,7 @@ public class Warehouse implements Serializable {
             client.removeFromWishlist(product.getId());
         }
 
-        if (invoice.getTotal() > 0) {
+        if (hasSuppliedItems) {
             client.debit(invoice.getTotal());
             client.addInvoice(invoice);
         }

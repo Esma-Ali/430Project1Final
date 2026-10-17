@@ -24,18 +24,19 @@ public class WaitlistItem implements Serializable {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
-        if (quantity < 0) {
+    // Used when a shipment only partly fills this request
+    public void deductQuantity(int filled) {
+        if (filled <= 0 || filled > quantity) {
             throw new IllegalArgumentException(
-                    "Quantity cannot be negative.");
+                    "Filled quantity must be between 1 and "
+                    + quantity + ".");
         }
 
-        this.quantity = quantity;
+        quantity -= filled;
     }
 
     @Override
     public String toString() {
-        return "Client ID: " + client.getId()
-                + ", Waiting quantity: " + quantity;
+        return "Client ID: " + client.getId() + ", Name: " + client.getName() + ", Waiting quantity: " + quantity;
     }
 }

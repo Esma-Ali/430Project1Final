@@ -28,6 +28,19 @@ public class Wishlist implements Serializable {
         return items.add(new WishlistItem(product, quantity));
     }
 
+    public boolean removeProduct(String productID) {
+        Iterator<WishlistItem> iterator = items.iterator();
+
+        while (iterator.hasNext()) {
+            if (iterator.next().getProduct().getId().equals(productID)) {
+                iterator.remove();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public Iterator<WishlistItem> getIterator() {
         return items.iterator();
     }

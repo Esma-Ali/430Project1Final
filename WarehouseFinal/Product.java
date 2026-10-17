@@ -29,6 +29,10 @@ public class Product implements Serializable {
         return id;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public int getQuantity() {
         return quantity;
     }
@@ -59,6 +63,14 @@ public class Product implements Serializable {
 
     public void addToWaitlist(Client client, int quantity) {
         waitlist.add(client, quantity);
+    }
+
+    public WaitlistItem getFirstWaitlistItem() {
+        return waitlist.getFirst();
+    }
+
+    public WaitlistItem removeFirstWaitlistItem() {
+        return waitlist.removeFirst();
     }
 
     public Iterator<WaitlistItem> getWaitlist() {

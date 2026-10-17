@@ -136,45 +136,48 @@ public class Warehouse implements Serializable {
 
         return true;
     }
-            public boolean receiveShipment(String productID, int received) {
+    // Fills the product's waitlist in order before adding anything to stock
+    // Returns the invoices created, or null if the product ID or quantity is invalid
+    public Iterator<Invoice> receiveShipment(
+            String productID, int received) {
+
         Product product = getProduct(productID);
 
         if (product == null || received <= 0) {
-            return false;
+            return null;
         }
 
+        List<Invoice> filledInvoices = new ArrayList<>();
         int remaining = received;
-        Iterator<WaitlistItem> iterator = product.getWaitlist();
+        WaitlistItem item;
 
-        while (iterator.hasNext() && remaining > 0) {
-            WaitlistItem item = iterator.next();
+        while (remaining > 0
+                && (item = product.getFirstWaitlistItem()) != null) {
             Client client = item.getClient();
-
-            int supplied = Math.min(
-                    remaining, item.getQuantity());
+            int waiting = item.getQuantity();
+            int filled = Math.min(remaining, waiting);
 
             Invoice invoice = new Invoice(client.getId());
-            invoice.addItem(
-                    product, supplied, product.getPrice());
+            invoice.addItem(product, filled, product.getPrice());
 
             client.debit(invoice.getTotal());
             client.addInvoice(invoice);
 
-            remaining -= supplied;
-            int stillWaiting = item.getQuantity() - supplied;
-
-            if (stillWaiting == 0) {
-                iterator.remove();
+            if (filled == waiting) {
+                product.removeFirstWaitlistItem();
             } else {
-                item.setQuantity(stillWaiting);
+                item.deductQuantity(filled);
             }
+
+            remaining -= filled;
+            filledInvoices.add(invoice);
         }
 
         if (remaining > 0) {
             product.addStock(remaining);
         }
 
-        return true;
+        return filledInvoices.iterator();
     }
 
     public Iterator<WaitlistItem> getProductWaitlist(
@@ -187,5 +190,15 @@ public class Warehouse implements Serializable {
         }
 
         return product.getWaitlist();
+    }
+
+    public Iterator<Invoice> getClientInvoices(String clientID) {
+        Client client = getClient(clientID);
+
+        if (client == null) {
+            return null;
+        }
+
+        return client.getInvoices();
     }
 }

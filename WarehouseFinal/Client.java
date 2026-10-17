@@ -43,6 +43,14 @@ public class Client implements Serializable {
         balance += amount;
     }
 
+    public void credit(double amount) {
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new IllegalArgumentException("Payment amount must be a positive number.");
+        }
+
+        balance -= amount;
+    }
+
     public void addInvoice(Invoice invoice) {
         if (invoice != null) {
             invoices.add(invoice);

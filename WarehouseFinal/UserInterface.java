@@ -16,6 +16,8 @@ public class UserInterface {
   private static final int SHOW_WAITLIST = 8;
   private static final int SHOW_INVOICES = 9;
   private static final int HELP = 10;
+  private static final int RECORD_PAYMENT = 11;
+  private static final int MAX_COMMAND = RECORD_PAYMENT;
 
   private UserInterface() {
     warehouse = Warehouse.instance();
@@ -82,10 +84,10 @@ public class UserInterface {
     do {
       try {
         int value = Integer.parseInt(getToken("Enter command: " + HELP + " for help").trim());
-        if (value >= EXIT && value <= HELP) {
+        if (value >= EXIT && value <= MAX_COMMAND) {
           return value;
         }
-        System.out.println("Enter a number between " + EXIT + " and " + HELP);
+        System.out.println("Enter a number between " + EXIT + " and " + MAX_COMMAND);
       } catch (NumberFormatException nfe) {
         System.out.println("Enter a number");
       }
@@ -93,7 +95,7 @@ public class UserInterface {
   }
 
   public void help() {
-    System.out.println("Enter a number between " + EXIT + " and " + HELP + " as explained below:");
+    System.out.println("Enter a number between " + EXIT + " and " + MAX_COMMAND + " as explained below:");
     System.out.println(EXIT + " to Exit\n");
     System.out.println(ADD_CLIENT + " to add a client");
     System.out.println(ADD_PRODUCTS + " to add products");
@@ -105,6 +107,7 @@ public class UserInterface {
     System.out.println(SHOW_WAITLIST + " to display a product's waitlist");
     System.out.println(SHOW_INVOICES + " to display a client's invoices");
     System.out.println(HELP + " for help");
+    System.out.println(RECORD_PAYMENT + " to record a payment from a client");
   }
 
   public void addClient() {
@@ -256,6 +259,24 @@ public class UserInterface {
     System.out.println("-------------------------");
   }
 
+    public void recordPayment() {
+    String clientId = getToken("Enter client ID (e.g. C1)").trim();
+    if (warehouse.getClient(clientId) == null) {
+      System.out.println("No client found with ID " + clientId);
+      return;
+    }
+    double amount;
+    while ((amount = getDouble("Enter payment amount")) <= 0 || !Double.isFinite(amount)) {
+      System.out.println("Payment must be a positive amount");
+    }
+    Double balance = warehouse.recordPayment(clientId, amount);
+    if (balance == null) {
+      System.out.println("Could not record payment");
+    } else {
+      System.out.println("Recorded payment of $" + String.format("%.2f", amount)
+          + " for " + clientId + ". New balance: $" + String.format("%.2f", balance));
+    }
+  }
   public void process() {
     int command;
     help();
@@ -280,6 +301,8 @@ public class UserInterface {
         case SHOW_INVOICES:   showInvoices();
                               break;
         case HELP:            help();
+                              break;
+        case RECORD_PAYMENT:  recordPayment();
                               break;
       }
     }

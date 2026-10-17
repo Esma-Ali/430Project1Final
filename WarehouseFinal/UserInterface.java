@@ -12,7 +12,10 @@ public class UserInterface {
   private static final int SHOW_PRODUCTS = 4;
   private static final int ADD_TO_WISHLIST = 5;
   private static final int SHOW_WISHLIST = 6;
-  private static final int HELP = 7;
+  private static final int RECEIVE_SHIPMENT = 7;
+  private static final int SHOW_WAITLIST = 8;
+  private static final int SHOW_INVOICES = 9;
+  private static final int HELP = 10;
 
   private UserInterface() {
     warehouse = Warehouse.instance();
@@ -98,6 +101,9 @@ public class UserInterface {
     System.out.println(SHOW_PRODUCTS + " to display all products");
     System.out.println(ADD_TO_WISHLIST + " to add a product to a client's wishlist");
     System.out.println(SHOW_WISHLIST + " to display a client's wishlist");
+    System.out.println(RECEIVE_SHIPMENT + " to receive a shipment of a product");
+    System.out.println(SHOW_WAITLIST + " to display a product's waitlist");
+    System.out.println(SHOW_INVOICES + " to display a client's invoices");
     System.out.println(HELP + " for help");
   }
 
@@ -181,6 +187,75 @@ public class UserInterface {
     System.out.println("-------------------------");
   }
 
+  public void receiveShipment() {
+    String productId;
+    while (warehouse.getProduct(productId = getToken("Enter product ID (e.g. P1)").trim()) == null) {
+      System.out.println("No product found with ID " + productId);
+    }
+
+    int quantity;
+    while ((quantity = getNumber("Enter quantity received")) <= 0) {
+      System.out.println("Quantity must be a positive whole number");
+    }
+
+    Iterator<Invoice> filled = warehouse.receiveShipment(productId, quantity);
+    if (filled == null) {
+      System.out.println("Could not receive shipment");
+      return;
+    }
+
+    if (!filled.hasNext()) {
+      System.out.println("No waitlisted orders were filled; entire shipment added to stock.");
+    } else {
+      System.out.println("---- Waitlisted orders filled ----");
+      while (filled.hasNext()) {
+        System.out.println(filled.next());
+      }
+    }
+
+    System.out.println("Updated product: " + warehouse.getProduct(productId));
+  }
+
+  public void showWaitlist() {
+    String productId = getToken("Enter product ID (e.g. P1)").trim();
+    Iterator<WaitlistItem> items = warehouse.getProductWaitlist(productId);
+    if (items == null) {
+      System.out.println("No product found with ID " + productId);
+      return;
+    }
+
+    System.out.println("---- Waitlist for " + productId + " ----");
+    if (!items.hasNext()) {
+      System.out.println("No clients are on the waitlist");
+    }
+
+    while (items.hasNext()) {
+      System.out.println(items.next());
+    }
+
+    System.out.println("-------------------------");
+  }
+
+  public void showInvoices() {
+    String clientId = getToken("Enter client ID (e.g. C1)").trim();
+    Iterator<Invoice> invoices = warehouse.getClientInvoices(clientId);
+    if (invoices == null) {
+      System.out.println("No client found with ID " + clientId);
+      return;
+    }
+
+    System.out.println("---- Invoices for " + clientId + " ----");
+    if (!invoices.hasNext()) {
+      System.out.println("No invoices were found");
+    }
+
+    while (invoices.hasNext()) {
+      System.out.println(invoices.next());
+    }
+    
+    System.out.println("-------------------------");
+  }
+
   public void process() {
     int command;
     help();
@@ -197,6 +272,12 @@ public class UserInterface {
         case ADD_TO_WISHLIST: addToWishlist();
                               break;
         case SHOW_WISHLIST:   showWishlist();
+                              break;
+        case RECEIVE_SHIPMENT: receiveShipment();
+                              break;
+        case SHOW_WAITLIST:   showWaitlist();
+                              break;
+        case SHOW_INVOICES:   showInvoices();
                               break;
         case HELP:            help();
                               break;

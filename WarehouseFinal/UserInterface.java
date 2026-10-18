@@ -280,52 +280,100 @@ public class UserInterface {
     }
   }
   public void placeOrder() {
-    String clientId = getToken("Enter client ID (e.g. C1)").trim();
-    List<WishlistItem> items = warehouse.getClientWishlistSnapshot(clientId);
-    if (items == null) {
-      System.out.println("No client found with ID " + clientId);
-      return;
-    }
-    if (items.isEmpty()) {
-      System.out.println("The wishlist for " + clientId + " is empty. Nothing to order.");
-      return;
-    }
+      String clientId = getToken("Enter client ID (e.g. C1)").trim();
+      List<WishlistItem> items =
+          warehouse.getClientWishlistSnapshot(clientId);
 
-    System.out.println("---- Order review for " + clientId + " ----");
-    for (WishlistItem item : items) {
-      Product product = item.getProduct();
-      int requested = item.getQuantity();
-      int supplied = Math.min(requested, product.getQuantity());
-      int shortage = requested - supplied;
-      System.out.println(product.getId() + " (" + product.getName() + "): requested " + requested
-          + ", in stock " + product.getQuantity()
-          + " -> will ship " + supplied
-          + (shortage > 0 ? ", " + shortage + " will go on the waitlist" : ""));
-    }
-    System.out.println("-------------------------");
+      if (items == null) {
+        System.out.println("No client found with ID " + clientId);
+        return;
+      }
 
-    if (!yesOrNo("Place this order?")) {
-      System.out.println("Order cancelled. The wishlist was not changed.");
-      return;
-    }
+      if (items.isEmpty()) {
+        System.out.println("The wishlist is empty. Nothing to order.");
+        return;
+      }
 
-    if (!warehouse.processOrder(clientId)) {
-      System.out.println("Could not place order");
-      return;
-    }
+      // Review copies first so cancellation leaves the wishlist unchanged.
+      for (WishlistItem item : items) {
+        System.out.println(item);
 
-    System.out.println("Order placed.");
-    Invoice latest = null;
-    Iterator<Invoice> invoices = warehouse.getClientInvoices(clientId);
-    while (invoices.hasNext()) {
-      latest = invoices.next();
-    }
-    if (latest != null) {
-      System.out.println(latest);
-    } else {
-      System.out.println("Nothing was in stock, so no invoice was created.");
-    }
-    System.out.println("Client: " + warehouse.getClient(clientId));
+        int quantity;
+        do {
+          quantity = getNumber(
+              "Enter quantity to order (0 removes this item; "
+              + "enter " + item.getQuantity() + " to keep its quantity)");
+
+          if (quantity < 0) {
+            System.out.println("Quantity cannot be negative.");
+          }
+        } while (quantity < 0);
+
+        item.setQuantity(quantity);
+      }
+
+      if (!yesOrNo("Apply these wishlist changes and place the order?")) {
+        System.out.println("Order cancelled. The wishlist was not changed.");
+        return;
+      }
+
+      Client client = warehouse.getClient(clientId);
+      boolean hasItems = false;
+
+      for (WishlistItem item : items) {
+        String productId = item.getProduct().getId();
+
+        if (item.getQuantity() == 0) {
+          client.removeFromWishlist(productId);
+        } else {
+          warehouse.addToWishlist(
+              clientId, productId, item.getQuantity());
+          hasItems = true;
+        }
+      }
+
+      if (!hasItems) {
+        System.out.println("All items were removed. No order was placed.");
+        return;
+      }
+
+      int previousInvoiceCount = 0;
+      Iterator<Invoice> invoices =
+          warehouse.getClientInvoices(clientId);
+
+      while (invoices.hasNext()) {
+        invoices.next();
+        previousInvoiceCount++;
+      }
+
+      if (!warehouse.processOrder(clientId)) {
+        System.out.println("Could not place order.");
+        return;
+      }
+
+      System.out.println("Order placed. Unfilled quantities go on waitlists.");
+
+      invoices = warehouse.getClientInvoices(clientId);
+      int invoiceIndex = 0;
+      boolean newInvoiceFound = false;
+
+      while (invoices.hasNext()) {
+        Invoice invoice = invoices.next();
+
+        if (invoiceIndex >= previousInvoiceCount) {
+          System.out.println(invoice);
+          newInvoiceFound = true;
+        }
+
+        invoiceIndex++;
+      }
+
+      if (!newInvoiceFound) {
+        System.out.println(
+            "Nothing was in stock, so no new invoice was created.");
+      }
+
+      System.out.println("Client: " + client);
   }
 
   public void process() {

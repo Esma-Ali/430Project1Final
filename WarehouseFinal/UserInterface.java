@@ -16,6 +16,9 @@ public class UserInterface {
   private static final int SHOW_WAITLIST = 8;
   private static final int SHOW_INVOICES = 9;
   private static final int HELP = 10;
+  private static final int RECORD_PAYMENT = 11;
+  private static final int PLACE_ORDER = 12;
+  private static final int MAX_COMMAND = PLACE_ORDER;
 
   private UserInterface() {
     warehouse = Warehouse.instance();
@@ -82,10 +85,10 @@ public class UserInterface {
     do {
       try {
         int value = Integer.parseInt(getToken("Enter command: " + HELP + " for help").trim());
-        if (value >= EXIT && value <= HELP) {
+        if (value >= EXIT && value <= MAX_COMMAND) {
           return value;
         }
-        System.out.println("Enter a number between " + EXIT + " and " + HELP);
+        System.out.println("Enter a number between " + EXIT + " and " + MAX_COMMAND);
       } catch (NumberFormatException nfe) {
         System.out.println("Enter a number");
       }
@@ -93,7 +96,7 @@ public class UserInterface {
   }
 
   public void help() {
-    System.out.println("Enter a number between " + EXIT + " and " + HELP + " as explained below:");
+    System.out.println("Enter a number between " + EXIT + " and " + MAX_COMMAND + " as explained below:");
     System.out.println(EXIT + " to Exit\n");
     System.out.println(ADD_CLIENT + " to add a client");
     System.out.println(ADD_PRODUCTS + " to add products");
@@ -105,6 +108,8 @@ public class UserInterface {
     System.out.println(SHOW_WAITLIST + " to display a product's waitlist");
     System.out.println(SHOW_INVOICES + " to display a client's invoices");
     System.out.println(HELP + " for help");
+    System.out.println(RECORD_PAYMENT + " to record a payment from a client");
+    System.out.println(PLACE_ORDER + " to place an order for everything in a client's wishlist");
   }
 
   public void addClient() {
@@ -256,6 +261,121 @@ public class UserInterface {
     System.out.println("-------------------------");
   }
 
+    public void recordPayment() {
+    String clientId = getToken("Enter client ID (e.g. C1)").trim();
+    if (warehouse.getClient(clientId) == null) {
+      System.out.println("No client found with ID " + clientId);
+      return;
+    }
+    double amount;
+    while ((amount = getDouble("Enter payment amount")) <= 0 || !Double.isFinite(amount)) {
+      System.out.println("Payment must be a positive amount");
+    }
+    Double balance = warehouse.recordPayment(clientId, amount);
+    if (balance == null) {
+      System.out.println("Could not record payment");
+    } else {
+      System.out.println("Recorded payment of $" + String.format("%.2f", amount)
+          + " for " + clientId + ". New balance: $" + String.format("%.2f", balance));
+    }
+  }
+  public void placeOrder() {
+      String clientId = getToken("Enter client ID (e.g. C1)").trim();
+      List<WishlistItem> items =
+          warehouse.getClientWishlistSnapshot(clientId);
+
+      if (items == null) {
+        System.out.println("No client found with ID " + clientId);
+        return;
+      }
+
+      if (items.isEmpty()) {
+        System.out.println("The wishlist is empty. Nothing to order.");
+        return;
+      }
+
+      // Review copies first so cancellation leaves the wishlist unchanged.
+      for (WishlistItem item : items) {
+        System.out.println(item);
+
+        int quantity;
+        do {
+          quantity = getNumber(
+              "Enter quantity to order (0 removes this item; "
+              + "enter " + item.getQuantity() + " to keep its quantity)");
+
+          if (quantity < 0) {
+            System.out.println("Quantity cannot be negative.");
+          }
+        } while (quantity < 0);
+
+        item.setQuantity(quantity);
+      }
+
+      if (!yesOrNo("Apply these wishlist changes and place the order?")) {
+        System.out.println("Order cancelled. The wishlist was not changed.");
+        return;
+      }
+
+      Client client = warehouse.getClient(clientId);
+      boolean hasItems = false;
+
+      for (WishlistItem item : items) {
+        String productId = item.getProduct().getId();
+
+        if (item.getQuantity() == 0) {
+          client.removeFromWishlist(productId);
+        } else {
+          warehouse.addToWishlist(
+              clientId, productId, item.getQuantity());
+          hasItems = true;
+        }
+      }
+
+      if (!hasItems) {
+        System.out.println("All items were removed. No order was placed.");
+        return;
+      }
+
+      int previousInvoiceCount = 0;
+      Iterator<Invoice> invoices =
+          warehouse.getClientInvoices(clientId);
+
+      while (invoices.hasNext()) {
+        invoices.next();
+        previousInvoiceCount++;
+      }
+
+      if (!warehouse.processOrder(clientId)) {
+        System.out.println("Could not place order.");
+        return;
+      }
+
+      System.out.println("Order placed. Unfilled quantities go on waitlists.");
+
+      invoices = warehouse.getClientInvoices(clientId);
+      int invoiceIndex = 0;
+      boolean newInvoiceFound = false;
+
+      while (invoices.hasNext()) {
+        Invoice invoice = invoices.next();
+
+        if (invoiceIndex >= previousInvoiceCount) {
+          System.out.println(invoice);
+          newInvoiceFound = true;
+        }
+
+        invoiceIndex++;
+      }
+
+      if (!newInvoiceFound) {
+        System.out.println(
+            "Nothing was in stock, so no new invoice was created.");
+      }
+
+      System.out.println("Client: " + client);
+  }
+
   public void process() {
     int command;
     help();
@@ -280,6 +400,10 @@ public class UserInterface {
         case SHOW_INVOICES:   showInvoices();
                               break;
         case HELP:            help();
+                              break;
+        case RECORD_PAYMENT:  recordPayment();
+                              break;
+        case PLACE_ORDER:     placeOrder();
                               break;
       }
     }

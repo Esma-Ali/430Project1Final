@@ -195,6 +195,16 @@ public class Warehouse implements Serializable {
         return product.getWaitlist();
     }
 
+    public Double recordPayment(String clientID, double amount) {
+        Client client = getClient(clientID);
+
+        if (client == null || !Double.isFinite(amount) || amount <= 0) {
+            return null;
+        }
+
+        client.credit(amount);
+        return client.getBalance();
+    }
     public Iterator<Invoice> getClientInvoices(String clientID) {
         Client client = getClient(clientID);
 

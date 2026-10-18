@@ -17,7 +17,8 @@ public class UserInterface {
   private static final int SHOW_INVOICES = 9;
   private static final int HELP = 10;
   private static final int RECORD_PAYMENT = 11;
-  private static final int MAX_COMMAND = RECORD_PAYMENT;
+  private static final int PLACE_ORDER = 12;
+  private static final int MAX_COMMAND = PLACE_ORDER;
 
   private UserInterface() {
     warehouse = Warehouse.instance();
@@ -108,6 +109,7 @@ public class UserInterface {
     System.out.println(SHOW_INVOICES + " to display a client's invoices");
     System.out.println(HELP + " for help");
     System.out.println(RECORD_PAYMENT + " to record a payment from a client");
+    System.out.println(PLACE_ORDER + " to place an order for everything in a client's wishlist");
   }
 
   public void addClient() {
@@ -277,6 +279,55 @@ public class UserInterface {
           + " for " + clientId + ". New balance: $" + String.format("%.2f", balance));
     }
   }
+  public void placeOrder() {
+    String clientId = getToken("Enter client ID (e.g. C1)").trim();
+    List<WishlistItem> items = warehouse.getClientWishlistSnapshot(clientId);
+    if (items == null) {
+      System.out.println("No client found with ID " + clientId);
+      return;
+    }
+    if (items.isEmpty()) {
+      System.out.println("The wishlist for " + clientId + " is empty. Nothing to order.");
+      return;
+    }
+
+    System.out.println("---- Order review for " + clientId + " ----");
+    for (WishlistItem item : items) {
+      Product product = item.getProduct();
+      int requested = item.getQuantity();
+      int supplied = Math.min(requested, product.getQuantity());
+      int shortage = requested - supplied;
+      System.out.println(product.getId() + " (" + product.getName() + "): requested " + requested
+          + ", in stock " + product.getQuantity()
+          + " -> will ship " + supplied
+          + (shortage > 0 ? ", " + shortage + " will go on the waitlist" : ""));
+    }
+    System.out.println("-------------------------");
+
+    if (!yesOrNo("Place this order?")) {
+      System.out.println("Order cancelled. The wishlist was not changed.");
+      return;
+    }
+
+    if (!warehouse.processOrder(clientId)) {
+      System.out.println("Could not place order");
+      return;
+    }
+
+    System.out.println("Order placed.");
+    Invoice latest = null;
+    Iterator<Invoice> invoices = warehouse.getClientInvoices(clientId);
+    while (invoices.hasNext()) {
+      latest = invoices.next();
+    }
+    if (latest != null) {
+      System.out.println(latest);
+    } else {
+      System.out.println("Nothing was in stock, so no invoice was created.");
+    }
+    System.out.println("Client: " + warehouse.getClient(clientId));
+  }
+
   public void process() {
     int command;
     help();
@@ -303,6 +354,8 @@ public class UserInterface {
         case HELP:            help();
                               break;
         case RECORD_PAYMENT:  recordPayment();
+                              break;
+        case PLACE_ORDER:     placeOrder();
                               break;
       }
     }
